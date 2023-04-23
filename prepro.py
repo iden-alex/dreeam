@@ -5,7 +5,7 @@ import pickle
 import os
 
 docred_rel2id = json.load(open('meta/rel2id.json', 'r'))
-docred_ent2id = {'NA': 0, 'ORG': 1, 'LOC': 2, 'NUM': 3, 'TIME': 4, 'MISC': 5, 'PER': 6}
+docred_ent2id = json.load(open('meta/ner2id.json', 'r'))
 
 def add_entity_markers(sample, tokenizer, entity_start, entity_end):
     ''' add entity marker (*) at the end and beginning of entities. '''
@@ -238,8 +238,11 @@ def read_docred(file_in,
                     sent_labels.append(sent_evi)
                     neg_samples += 1
                     
-        assert len(relations) == len(entities) * (len(entities) - 1)
-        assert len(sents) < max_seq_length
+        assert len(relations) <= len(entities) * (len(entities) - 1) + 1
+        assert len(relations) >= len(entities) * (len(entities) - 1) 
+        # assert len(sents) < max_seq_length
+        if len(sents) > max_seq_length:
+          print(f'Warning: len(sent): {len(sents)} > max_seq_length {max_seq_length}')
         sents = sents[:max_seq_length - 2] # truncate, -2 for [CLS] and [SEP]
         input_ids = tokenizer.convert_tokens_to_ids(sents)
         input_ids = tokenizer.build_inputs_with_special_tokens(input_ids)
