@@ -258,7 +258,7 @@ def official_evaluate(tmp, path, train_file = "train_annotated.json", dev_file =
         os.makedirs(truth_dir)
 
     fact_in_train_annotated = gen_train_facts(os.path.join(path, train_file), truth_dir)
-    fact_in_train_distant = gen_train_facts(os.path.join(path, "train_distant.json"), truth_dir)
+    # fact_in_train_distant = gen_train_facts(os.path.join(path, "train_distant.json"), truth_dir)
 
     truth = json.load(open(os.path.join(path, dev_file)))
         
@@ -327,13 +327,13 @@ def official_evaluate(tmp, path, train_file = "train_annotated.json", dev_file =
                 for n2 in vertexSet[t_idx]:
                     if (n1['name'], n2['name'], r) in fact_in_train_annotated:
                         in_train_annotated = True
-                    if (n1['name'], n2['name'], r) in fact_in_train_distant:
-                        in_train_distant = True
+                    # if (n1['name'], n2['name'], r) in fact_in_train_distant:
+                    #     in_train_distant = True
 
             if in_train_annotated:
                 correct_in_train_annotated += 1
-            if in_train_distant:
-                correct_in_train_distant += 1
+            # if in_train_distant:
+            #     correct_in_train_distant += 1
 
     re_p = 1.0 * correct_re / len(submission_answer)
     re_r = 1.0 * correct_re / tot_relations if tot_relations != 0 else 0
