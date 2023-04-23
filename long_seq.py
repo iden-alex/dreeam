@@ -31,7 +31,7 @@ def process_long_input(model, input_ids, attention_mask, start_tokens, end_token
                 new_input_ids.append(input_ids[i, :512])
                 new_attention_mask.append(attention_mask[i, :512])
                 num_seg.append(1)
-            else: # split the input into two parts: (0, 512) and (end - 512, end)
+            elif l_i <= 1024: # split the input into two parts: (0, 512) and (end - 512, end)
                 input_ids1 = torch.cat([input_ids[i, :512 - len_end], end_tokens], dim=-1)
                 input_ids2 = torch.cat([start_tokens, input_ids[i, (l_i - 512 + len_start): l_i]], dim=-1)
                 attention_mask1 = attention_mask[i, :512]
@@ -39,6 +39,17 @@ def process_long_input(model, input_ids, attention_mask, start_tokens, end_token
                 new_input_ids.extend([input_ids1, input_ids2])
                 new_attention_mask.extend([attention_mask1, attention_mask2])
                 num_seg.append(2)
+                
+            else:
+                input_ids1 = input_ids[i, :512]
+                input_ids2 = input_ids[i, 512:(512*2)]
+                input_ids3 = torch.cat([start_tokens, input_ids[i, (l_i - 512 + len_start): l_i]], dim=-1)
+                attention_mask1 = attention_mask[i, :512]
+                attention_mask2 = attention_mask[i, 512:(512*2)]
+                attention_mask3 = attention_mask[i, (l_i - 512): l_i]
+                new_input_ids.extend([input_ids1, input_ids2, input_ids3])
+                new_attention_mask.extend([attention_mask1, attention_mask2, attention_mask3])
+                num_seg.append(3)
                 
         input_ids = torch.stack(new_input_ids, dim=0)
         attention_mask = torch.stack(new_attention_mask, dim=0)
@@ -90,6 +101,42 @@ def process_long_input(model, input_ids, attention_mask, start_tokens, end_token
                 att = att / (att.sum(-1, keepdim=True) + 1e-10)
                 new_output.append(output)
                 new_attention.append(att)
+            elif n_s == 3:
+                output1 = sequence_output[i][:512]
+                output2 = sequence_output[i + 1][:512]
+                output3 = sequence_output[i + 2][len_start:]
+
+                pad1 = c - 512
+                pad2 = 512
+                pad3 = l_i - (512 * 2) + len_start
+
+                output1 = F.pad(output1, (0, 0, 0, pad1))
+                output2 = F.pad(output2, (0, 0, pad2, pad1 - pad2))
+                output3 = F.pad(output3, (0, 0, pad2 + pad3, c - l_i))
+
+                mask1 = attention_mask[i][:512]
+                mask2 = attention_mask[i + 1][:512]
+                mask3 = attention_mask[i + 2][len_start:]
+
+                mask1 = F.pad(mask1, (0, pad1))
+                mask2 = F.pad(mask2, (pad2, pad1 - pad2))
+                mask3 = F.pad(mask3, (pad2 + pad3, c - l_i))
+
+                att1 = attention[i][:, :512, :512]
+                att2 = attention[i + 1][:, :512, :512]
+                att3 = attention[i + 2][:, len_start:, len_start:]
+
+                att1 = F.pad(att1, (0, pad1, 0, pad1))
+                att2 = F.pad(att2, (pad2, pad1 - pad2, pad2, pad1 - pad2))
+                att3 = F.pad(att3, (pad2 + pad3, c - l_i, pad2 + pad3, c - l_i))
+                
+                mask = mask1 + mask2 + mask3 + 1e-10
+                output = (output1 + output2 + output3) / mask.unsqueeze(-1)
+                att = (att1 + att2 + att3)
+                att = att / (att.sum(-1, keepdim=True) + 1e-10)
+                new_output.append(output)
+                new_attention.append(att)
+
             i += n_s
             
         sequence_output = torch.stack(new_output, dim=0)
